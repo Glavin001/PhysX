@@ -1636,6 +1636,9 @@ impl GpuSolver {
             }
             self.profile.readback += t_read.elapsed().as_secs_f64();
             let halted: Vec<usize> = (0..islands.len()).filter(|&i| islands[i].info[2] & ISLAND_HALTED != 0).collect();
+            if let Some(limit) = blowup_limit() {
+                self.batch_check(limit, &islands, dt);
+            }
             for (ci, isl) in islands.iter().enumerate() {
                 let id = self.mirror.clusters[ci].id;
                 *remaining.get_mut(&id).unwrap() = isl.info[1] as usize;
@@ -1814,6 +1817,69 @@ impl GpuSolver {
             return true;
         }
         false
+    }
+
+    /// Diagnostic (`STRESS_GPU_BLOWUP_CHECK`): after a batch, each island whose centre of
+    /// mass or surface (|w| times its chunks' reach) now moves faster than `limit` and did
+    /// not before it, with what the contact plan lets its chunks touch.
+    fn batch_check(&self, limit: f64, islands: &[Island], dt: f64) {
+        let m = &self.mirror;
+        let plan = &self.layout.plan;
+        let speed = |isl: &Island, ci: usize| {
+            let cl = &m.clusters[ci];
+            let reach = cl.chunks.iter().map(|&c| (m.structures[cl.structure].chunks[c].center - cl.com).norm() + m.structures[cl.structure].chunks[c].half_extents.norm()).fold(0.0, f64::max);
+            joined(isl.velocity, isl.velocity_err).norm() + vec3(isl.angular_velocity).norm() * reach
+        };
+        for (ci, isl) in islands.iter().enumerate() {
+            let before = &self.layout.islands[ci];
+            let (s0, s1) = (speed(before, ci), speed(isl, ci));
+            if !(s1 > limit) || s0 > limit {
+                continue;
+            }
+            let cl = &m.clusters[ci];
+            eprintln!(
+                "BATCH island {ci} (id {}, parent {:?}, {} chunks, {} bonds, m {:.1}, {:?}, flags {:#x}): surface speed {s0:.3e} -> {s1:.3e} over substeps {}..{} (dt {dt:.3e}); v {:?} -> {:?}, w {:?} -> {:?}",
+                cl.id,
+                cl.parent,
+                cl.chunks.len(),
+                cl.bonds.len(),
+                cl.mass,
+                cl.activity,
+                before.info[0],
+                before.info[3],
+                isl.info[3],
+                joined(before.velocity, before.velocity_err).to_array(),
+                joined(isl.velocity, isl.velocity_err).to_array(),
+                vec3(before.angular_velocity).to_array(),
+                vec3(isl.angular_velocity).to_array()
+            );
+            for &c in cl.chunks.iter().take(6) {
+                let s = cl.structure;
+                let k = self.layout.chunks.iter().position(|&sc| sc == (s, c)).unwrap() as u32;
+                let pairs: Vec<String> = plan
+                    .pairs
+                    .iter()
+                    .filter(|p| p.1 == k || p.2 == k)
+                    .map(|p| {
+                        let o = if p.1 == k { p.2 } else { p.1 } as usize;
+                        let (so, co) = self.layout.chunks[o];
+                        format!("({so},{co}) cl {} m {:.0}", m.chunks[so][co].cluster, m.structures[so].chunks[co].mass)
+                    })
+                    .collect();
+                let ch = &m.structures[s].chunks[c];
+                eprintln!(
+                    "    chunk ({s},{c}) m {:.1} half {:?} hull {} at {:?}; ground {}, impactor {}, pairs {}: {}",
+                    ch.mass,
+                    ch.half_extents.to_array(),
+                    ch.hull.as_ref().map_or(0, |h| h.vertices.len()),
+                    m.chunk_position(s, c).to_array(),
+                    plan.ground.contains(&k),
+                    plan.impactor_chunks.iter().any(|l| l.contains(&k)),
+                    pairs.len(),
+                    pairs.join("; ")
+                );
+            }
+        }
     }
 
     /// Whether cluster `ci` stays one piece with the bonds that disconnected on the GPU

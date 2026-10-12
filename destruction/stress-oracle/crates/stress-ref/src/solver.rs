@@ -1934,4 +1934,86 @@ mod tests {
         assert!(bound >= top * (1.0 - 1e-9), "bound {bound:.6e} below the top eigenvalue {top:.6e}");
         assert!(bound <= gershgorin * (1.0 + 1e-12));
     }
+
+    /// A free fragment and a 3-chunk free cluster at the same world place, their body
+    /// origin either beside them or 25 m away (`at_origin`), each chunk with a finite
+    /// hidden rotation and displacement, as a split leaves a child (house-1story rammed
+    /// and fractured-bridge left 0.09 rad).
+    fn fragments(origin_far: bool) -> ReferenceSolver {
+        use crate::builders::*;
+        let mut s = new_scene("fold", "rigid drift fold");
+        s.gravity = [0.0; 3];
+        s.materials.insert("concrete".into(), oracle_concrete(None));
+        let world = Vec3::new(25.0, -3.0, 1.0);
+        let (offset, position) = if origin_far { (world, [0.0; 3]) } else { (Vec3::ZERO, world.to_array()) };
+        let mut one = body("one", grid(offset + Vec3::new(-0.5, -0.5, -0.5), [1, 1, 1], Vec3::splat(1.0), "concrete"), Vec::new());
+        one.position = position;
+        let chunks = grid(offset + Vec3::new(-1.5, 2.0, -0.5), [3, 1, 1], Vec3::splat(1.0), "concrete");
+        let bonds = auto_bonds(&chunks, |_, _| "concrete".into());
+        let mut three = body("three", chunks, bonds);
+        three.position = position;
+        s.bodies = vec![one, three];
+        let mut sv = ReferenceSolver::new(&s);
+        for (k, st) in sv.chunks.iter_mut().flatten().enumerate() {
+            let k = k as f64;
+            st.th = Vec3::new(0.02 - 0.01 * k, 0.09, -0.01 + 0.005 * k);
+            st.u = Vec3::new(1e-3 * k, -2e-3, 5e-4 * k);
+        }
+        sv
+    }
+
+    /// World centre and orientation of every chunk.
+    fn chunk_poses(sv: &ReferenceSolver) -> Vec<(Vec3, Quat)> {
+        let mut out = Vec::new();
+        for s in 0..sv.structures.len() {
+            for c in 0..sv.structures[s].chunks.len() {
+                let st = &sv.chunks[s][c];
+                let q = sv.clusters[st.cluster].pose.rotation * Quat::from_axis_angle(st.th, st.th.norm());
+                out.push((sv.chunk_position(s, c), q));
+            }
+        }
+        out
+    }
+
+    /// `remove_rigid_drift` changes the floating frame, not the chunks: it must not depend
+    /// on where the body's origin lies (an arbitrary choice of the scene), and it leaves a
+    /// one-chunk cluster where it is (its hidden rotation becomes the frame's exactly).
+    /// The world positions and orientations after the fold are compared at f64 rounding
+    /// (gamma_n of the coordinates involved, n = 64 operations).
+    #[test]
+    fn rigid_drift_fold_is_independent_of_the_body_origin() {
+        let gamma = |n: f64| n * (f64::EPSILON / 2.0) / (1.0 - n * f64::EPSILON / 2.0);
+        let mut after = Vec::new();
+        for far in [false, true] {
+            let mut sv = fragments(far);
+            let before = chunk_poses(&sv);
+            for ci in 0..sv.clusters.len() {
+                sv.remove_rigid_drift(ci);
+            }
+            let now = chunk_poses(&sv);
+            // The one-chunk cluster (structure 0): unchanged.
+            let (x0, q0) = before[0];
+            let (x1, q1) = now[0];
+            let scale = x0.norm() + 30.0;
+            assert!((x1 - x0).norm() <= gamma(64.0) * scale, "origin far {far}: the fold moved a one-chunk cluster by {:.3e} m", (x1 - x0).norm());
+            let turn = 2.0 * (q0.conjugate() * q1).normalized().x.abs().max((q0.conjugate() * q1).normalized().y.abs()).max((q0.conjugate() * q1).normalized().z.abs());
+            assert!(turn <= gamma(64.0), "origin far {far}: the fold turned a one-chunk cluster by {turn:.3e} rad");
+            after.push((before, now));
+        }
+        // Every chunk: the same world pose before (by construction) and after the fold,
+        // whichever the origin.
+        let (near, far) = (&after[0], &after[1]);
+        for k in 0..near.0.len() {
+            let scale = near.0[k].0.norm() + 30.0;
+            assert!((near.0[k].0 - far.0[k].0).norm() <= gamma(64.0) * scale, "chunk {k}: different start");
+            let moved_near = near.1[k].0 - near.0[k].0;
+            let moved_far = far.1[k].0 - far.0[k].0;
+            assert!(
+                (moved_near - moved_far).norm() <= gamma(64.0) * scale,
+                "chunk {k}: the fold moved it by {:?} with the origin beside it, {:?} with the origin 25 m away",
+                moved_near.to_array(),
+                moved_far.to_array()
+            );
+        }
+    }
 }

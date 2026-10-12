@@ -190,3 +190,137 @@ fn reference_house_ram_long() {
         );
     }
 }
+
+#[path = "../examples/common/packs.rs"]
+mod packs;
+
+/// fractured-bridge as the destruction_video recorder stages it alone (hull colliders
+/// reduced to their corners, `packs::pack`), standing under its own weight with its chunks
+/// about 20 m from its body origin (the recorder's town places packs by moving chunk
+/// centres; the body origin stays at the world origin). No impactor: the recorder's ball
+/// arrives at 2 s, after the fault.
+fn bridge() -> Scene {
+    let p = packs::pack("fractured-bridge");
+    let (mut lo, mut hi) = (Vec3::splat(f64::INFINITY), Vec3::splat(f64::NEG_INFINITY));
+    for c in &p.bodies[0].chunks {
+        lo = lo.component_min(Vec3::from_array(c.center));
+        hi = hi.component_max(Vec3::from_array(c.center));
+    }
+    let offset = Vec3::new(20.0 - 0.5 * (lo.x + hi.x), -0.5 * (lo.y + hi.y), 0.0);
+    let mut s = p.clone();
+    s.impactors.clear();
+    for body in &mut s.bodies {
+        for c in &mut body.chunks {
+            c.center = (Vec3::from_array(c.center) + offset).to_array();
+        }
+        for b in &mut body.bonds {
+            b.centroid = (Vec3::from_array(b.centroid) + offset).to_array();
+        }
+    }
+    s
+}
+
+/// Mechanical energy of the mirror and impactors: every active chunk's kinetic energy
+/// (its world velocity and spin: a rigid cluster's by the parallel-axis theorem, plus the
+/// hidden deformation's) and potential energy above the ground; and the bonds' stored
+/// energy.
+fn mechanical(m: &stress_ref::solver::ReferenceSolver, imps: &[stress_ref::world::Impactor], g: f64, ground: f64) -> (f64, f64) {
+    let mut e = 0.0;
+    for s in 0..m.structures.len() {
+        for c in 0..m.structures[s].chunks.len() {
+            if !m.chunks[s][c].active {
+                continue;
+            }
+            let ch = &m.structures[s].chunks[c];
+            let (v, w) = m.chunk_velocity(s, c);
+            let st = &m.chunks[s][c];
+            let q = m.clusters[st.cluster].pose.rotation * stress_ref::math::Quat::from_axis_angle(st.th, st.th.norm());
+            let r = q.to_mat3() * ch.rotation;
+            let iw = r * ch.inertia * r.transpose();
+            e += 0.5 * ch.mass * v.norm2() + 0.5 * w.dot(iw * w) + ch.mass * g * (m.chunk_position(s, c).z - ground);
+        }
+    }
+    for imp in imps {
+        e += 0.5 * imp.mass * imp.velocity.norm2() + imp.mass * g * (imp.pose.position.z - ground);
+    }
+    let stored: f64 = m.bonds.iter().flatten().filter(|b| b.alive).map(|b| b.stored).sum();
+    (e, stored)
+}
+
+/// Nothing does work on the bridge but gravity (in the potential energy); bonds,
+/// contacts and the engine only store or dissipate. So the chunks' kinetic plus
+/// potential energy can never exceed what the bridge started with: its kinetic and
+/// potential energy and the prestress its bonds store. Records the first frame that does.
+fn energy_check(f: usize, t: f64, now: f64, start: f64, failure: &mut Option<String>) {
+    if failure.is_none() && !(now <= start) {
+        *failure = Some(format!("frame {f} (t {t:.3} s): kinetic + potential energy {now:.6e} J above the {start:.6e} J the bridge started with (+{:.3e} J)", now - start));
+    }
+}
+
+/// Regression (`--ignored --nocapture`; BLOWUP_FRAMES, default 60): fractured-bridge on
+/// the GPU world coupled to PhysX GPU at the realtime_peak settings with fixed horizons,
+/// within its energy (`energy_check`). While the drift removal's frame fold turned about
+/// the body origin, a split child with a 0.09 rad hidden rotation jumped 9.5 cm
+/// (1/2 phi^2 x 23.6 m) into its neighbour and the contact fired 2-3 t chunks at
+/// 300-450 m/s (frame 49).
+#[test]
+#[ignore]
+fn bridge_stays_within_its_energy_gpu() {
+    std::env::set_var("STRESS_GPU_FIXED_HORIZON", "1");
+    let frames = env_usize("BLOWUP_FRAMES", 60);
+    let s = configure(bridge(), frames as f64 / 60.0);
+    let Ok(gpu) = Gpu::new() else { return };
+    let g = Vec3::from_array(s.gravity);
+    let Some(engine) = PhysxEngine::boxed_gpu(g) else {
+        eprintln!("no PhysX GPU scene; skipping");
+        return;
+    };
+    let ground = s.ground.as_ref().expect("ground").height;
+    let mut w = GpuWorld::with_engine(&gpu, &s, engine).expect("GPU world");
+    w.solver.sync(&gpu);
+    let (e0, stored0) = mechanical(&w.solver.mirror, &w.solver.impactors, g.norm(), ground);
+    let start = e0 + stored0;
+    eprintln!("start: kinetic + potential {e0:.6e} J, bonds' stored {stored0:.3e} J");
+    let mut failure = None;
+    let mut worst = f64::NEG_INFINITY;
+    for f in 0..frames {
+        w.step_frame(&gpu).expect("frame");
+        w.solver.sync(&gpu);
+        let (e, _) = mechanical(&w.solver.mirror, &w.solver.impactors, g.norm(), ground);
+        worst = worst.max(e - start);
+        energy_check(f, w.solver.mirror.time, e, start, &mut failure);
+        if let Some(why) = &failure {
+            let (v, line) = report(&w.solver.mirror, &w.solver.impactors);
+            panic!("{why}; fastest {v:.3e} m/s: {line}");
+        }
+    }
+    eprintln!("{frames} frames: kinetic + potential at most {worst:.4e} J relative to the start");
+}
+
+/// `bridge_stays_within_its_energy_gpu` on the reference world coupled to PhysX CPU
+/// (`World::with_engine`, f64), which the same fold sent to 35 m/s at frame 49.
+#[test]
+#[ignore]
+fn bridge_stays_within_its_energy_reference() {
+    let frames = env_usize("BLOWUP_FRAMES", 60);
+    let s = configure(bridge(), frames as f64 / 60.0);
+    let g = Vec3::from_array(s.gravity);
+    let ground = s.ground.as_ref().expect("ground").height;
+    let mut w = stress_ref::world::World::with_engine(&s, PhysxEngine::boxed(g).expect("PhysX CPU"));
+    let (e0, stored0) = mechanical(&w.solver, &w.impactors, g.norm(), ground);
+    let start = e0 + stored0;
+    eprintln!("start: kinetic + potential {e0:.6e} J, bonds' stored {stored0:.3e} J");
+    let mut failure = None;
+    let mut worst = f64::NEG_INFINITY;
+    for f in 0..frames {
+        w.step_frame();
+        let (e, _) = mechanical(&w.solver, &w.impactors, g.norm(), ground);
+        worst = worst.max(e - start);
+        energy_check(f, w.solver.time, e, start, &mut failure);
+        if let Some(why) = &failure {
+            let (v, line) = report(&w.solver, &w.impactors);
+            panic!("{why}; fastest {v:.3e} m/s: {line}");
+        }
+    }
+    eprintln!("{frames} frames: kinetic + potential at most {worst:.4e} J relative to the start");
+}

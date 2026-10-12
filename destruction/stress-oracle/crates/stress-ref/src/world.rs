@@ -1045,6 +1045,13 @@ impl World {
                 let m = self.solver.structures[s].chunks[c].mass;
                 let below: Vec<Vec3> = b.sample_points().into_iter().filter(|p| p.z < g.height).collect();
                 let n = below.len();
+                if let Some(limit) = contact_trace() {
+                    let deepest = below.iter().map(|p| g.height - p.z).fold(0.0, f64::max);
+                    let f_est = kc / n.max(5) as f64 * below.iter().map(|p| g.height - p.z).sum::<f64>();
+                    if f_est / m > limit {
+                        eprintln!("CONTACT ground t {:.6}: ({s},{c}) cl {}, {:.1} kg: elastic |F| {f_est:.3e} N ({:.3e} m/s2), {n} points, deepest {deepest:.4e} m, k {kc:.3e}", self.solver.time, self.solver.chunks[s][c].cluster, m, f_est / m);
+                    }
+                }
                 for p in below {
                     let depth = g.height - p.z;
                     let v = self.solver.point_velocity(s, c, p);
@@ -1124,6 +1131,38 @@ impl World {
             for pc in outcomes.into_iter().flatten() {
                 crate::profile::count(crate::profile::Counter::PairOverlaps, 1);
                 let (sa, ca, sb, cb) = pc.key;
+                if std::env::var("STRESS_REF_TRACE_PAIR").is_ok_and(|v| v == format!("{ca},{cb}")) {
+                    eprintln!(
+                        "PAIR t {:.7}: ({sa},{ca}) cl id {} at {:?} u {:?} th {:?} - ({sb},{cb}) cl id {} at {:?} u {:?} th {:?}: {}",
+                        self.solver.time,
+                        self.solver.clusters[self.solver.chunks[sa][ca].cluster].id,
+                        self.solver.chunk_position(sa, ca).to_array(),
+                        self.solver.chunks[sa][ca].u.to_array(),
+                        self.solver.chunks[sa][ca].th.to_array(),
+                        self.solver.clusters[self.solver.chunks[sb][cb].cluster].id,
+                        self.solver.chunk_position(sb, cb).to_array(),
+                        self.solver.chunks[sb][cb].u.to_array(),
+                        self.solver.chunks[sb][cb].th.to_array(),
+                        pc.inside_trace.iter().map(|t| format!("[#{} d {:.4e} off {:.4e} n {:?}]", t.0, t.1, t.2, t.3.to_array().map(|x| (x * 1e3).round() / 1e3))).collect::<Vec<_>>().join(" ")
+                    );
+                }
+                if let Some(limit) = contact_trace() {
+                    let total: Vec3 = pc.points.iter().fold(Vec3::ZERO, |a, p| a + p.1);
+                    let m = self.solver.structures[sa].chunks[ca].mass.min(self.solver.structures[sb].chunks[cb].mass);
+                    if total.norm() / m > limit {
+                        eprintln!(
+                            "CONTACT pair t {:.6}: ({sa},{ca}) cl {} - ({sb},{cb}) cl {}: |F| {:.3e} N ({:.3e} m/s2 on the lighter, {:.1} kg); {} points: {}",
+                            self.solver.time,
+                            self.solver.chunks[sa][ca].cluster,
+                            self.solver.chunks[sb][cb].cluster,
+                            total.norm(),
+                            total.norm() / m,
+                            m,
+                            pc.points.len(),
+                            pc.points.iter().zip(&pc.trace).map(|(q, t)| format!("[|f| {:.2e} depth {:.4e} offset {:.4e} n {:?}]", q.1.norm(), t.0, t.1, t.2.to_array().map(|x| (x * 1e3).round() / 1e3))).collect::<Vec<_>>().join(" ")
+                        );
+                    }
+                }
                 self.pair_offsets.insert(pc.key, pc.offsets);
                 for (p, f, stored, dissipated, work) in pc.points {
                     self.contact.stored += stored;
@@ -2919,6 +2958,13 @@ fn chunk_pairs(bounds: &[(Vec3, f64)], cluster: &[usize], boxes: &[(Vec3, Vec3)]
     out
 }
 
+/// Diagnostic (`STRESS_REF_CONTACT_TRACE=<m/s^2>`): print chunk contacts whose force
+/// accelerates the lighter chunk beyond this. Read once.
+fn contact_trace() -> Option<f64> {
+    static LIMIT: std::sync::OnceLock<Option<f64>> = std::sync::OnceLock::new();
+    *LIMIT.get_or_init(|| std::env::var("STRESS_REF_CONTACT_TRACE").ok().and_then(|v| v.parse().ok()))
+}
+
 /// A chunk's (or impactor's) shape as a polytope.
 fn polytope_of(b: &OBox, owner: Owner) -> Polytope {
     match &b.hull {
@@ -2937,6 +2983,10 @@ struct PairContact {
     /// Per engaged point: position, force on `a` (minus on `b`), energy stored and
     /// dissipated by the penalty contact, and the work of the force on the relative motion.
     points: Vec<(Vec3, Vec3, f64, f64, f64)>,
+    /// Per engaged point (diagnostic): its depth, overlap offset and normal.
+    trace: Vec<(f64, f64, Vec3)>,
+    /// Per point inside (diagnostic): sample index, depth, offset, normal.
+    inside_trace: Vec<(usize, f64, f64, Vec3)>,
 }
 
 /// Penalty contact between two chunks of different clusters: the sample points of each
@@ -2969,6 +3019,7 @@ fn pair_contact(
     let mut entry = offsets.unwrap_or_else(|| vec![(f64::NAN, Vec3::ZERO); na + nb]);
     let mut inside = vec![false; na + nb];
     let mut effective = Vec::with_capacity(pairs.len());
+    let mut inside_trace = Vec::new();
     for &(i, p, n, depth) in &pairs {
         inside[i] = true;
         // A new contact (or the same point now pushed through a different face): a
@@ -2983,7 +3034,8 @@ fn pair_contact(
         }
         // The offset only ratchets down as the overlap relaxes.
         entry[i].0 = entry[i].0.min(depth);
-        effective.push((p, n, depth - entry[i].0));
+        effective.push((p, n, depth - entry[i].0, depth, entry[i].0));
+        inside_trace.push((i, depth, entry[i].0, n));
     }
     for (i, e) in entry.iter_mut().enumerate() {
         if !inside[i] {
@@ -2995,16 +3047,18 @@ fn pair_contact(
     let engaged = effective.iter().filter(|e| e.2 > 0.0).count();
     let k = k_pair / (engaged.max(FACE_PAIR_POINTS) as f64);
     let mut points = Vec::new();
-    for (p, n, depth) in effective {
+    let mut trace = Vec::new();
+    for (p, n, depth, raw, offset) in effective {
         if depth <= 0.0 {
             continue;
         }
+        trace.push((raw, offset, n));
         let va = solver.point_velocity(sa, ca, p);
         let vb = solver.point_velocity(sb, cb, p);
         let (f, stored, dissipated) = penalty_force(k, m_red, scene.sim.contact_restitution, mu, depth, n, va - vb, dt, engaged);
         points.push((p, f, stored, dissipated, f.dot(va - vb) * dt));
     }
-    Some(PairContact { key, offsets: entry, centers: (solver.chunk_position(sa, ca), solver.chunk_position(sb, cb)), points })
+    Some(PairContact { key, offsets: entry, centers: (solver.chunk_position(sa, ca), solver.chunk_position(sb, cb)), points, trace, inside_trace })
 }
 
 /// The face of a chunk whose outward normal is within ~8 degrees of `dir`.
