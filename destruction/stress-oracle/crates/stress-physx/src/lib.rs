@@ -30,6 +30,9 @@ use std::collections::HashMap;
 
 pub mod engine;
 pub use engine::PhysxEngine;
+/// Offscreen video renderer for the GPU world (wgpu, WGSL), behind the `gpu` feature.
+#[cfg(feature = "gpu")]
+pub mod render;
 use engine::{pq, pv, rq, rv};
 
 use blast_stress_solver::backend::{

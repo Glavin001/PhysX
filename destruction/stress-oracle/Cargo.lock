@@ -1691,10 +1691,12 @@ name = "stress-physx"
 version = "0.1.0"
 dependencies = [
  "blast-stress-solver",
+ "bytemuck",
  "serde",
  "serde_json",
  "stress-gpu",
  "stress-ref",
+ "wgpu",
 ]
 
 [[package]]
