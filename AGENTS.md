@@ -27,6 +27,12 @@ not an intact-idle measurement. Missing either regime means incomplete qualifica
 Run isolated GPU jobs sequentially without stopping other developers' services.
 These instructions apply to destruction work, not unrelated upstream modules.
 
+Test destruction solvers per `destruction/stress-oracle/TESTING.md`: physical invariant
+checks every frame, a failing test before every fix, and seconds-long reproductions
+(fixtures, micro cases) rather than long runs. Oracle quality profiles are proposed in
+`destruction/stress-oracle/ORACLE_QUALITY.md`; the layer-contact GPU port in
+`destruction/stress-oracle/crates/stress-gpu/LAYER_CONTACT_PORT.md`.
+
 Physical accuracy is not traded for convenience. Never use arbitrary caps, clamps,
 thresholds or tuned constants to make a result look right or pass a gate (for
 example capping a contact impulse). Every bound or correction must follow from the
