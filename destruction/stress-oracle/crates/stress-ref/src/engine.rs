@@ -105,6 +105,20 @@ pub struct EngineContact {
     pub approach_speed: f64,
 }
 
+/// A chunk pair's rest overlap handed between the world and the engine: elastic-layer
+/// contact's permanent indentation (`sim.methods.layer_contact`; crushed material, or a
+/// broken joint's compression handed over at a split), overlap the contact holds at
+/// rest. The engine treats overlap of the pair up to `indent` as rest, keeps it while
+/// the chunks overlap and forgets it once they no longer do (the layer contact's rule).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RestOverlap {
+    /// (structure, chunk) of the two chunks, `a < b`.
+    pub a: (usize, usize),
+    pub b: (usize, usize),
+    /// The indentation (m).
+    pub indent: f64,
+}
+
 /// What the world needs from a rigid-body engine.
 pub trait RigidEngine {
     /// Name for reports ("physx-cpu").
@@ -129,4 +143,14 @@ pub trait RigidEngine {
     fn restore(&mut self);
     /// Forget the saved motion.
     fn discard(&mut self);
+    /// The rest overlaps of chunk pairs the engine is to step this frame (replacing any
+    /// it holds), kept with its saved motion. False if it cannot hold them (the world
+    /// then keeps them itself).
+    fn set_rest_overlaps(&mut self, _overlaps: &[RestOverlap]) -> bool {
+        false
+    }
+    /// The rest overlaps it still holds after its step (those whose chunks overlap).
+    fn rest_overlaps(&self) -> Vec<RestOverlap> {
+        Vec::new()
+    }
 }

@@ -119,7 +119,8 @@ fn check(label: &str, make: &dyn Fn() -> Box<dyn RigidEngine>, rested: World, fr
     let (own, _, _) = rest_then_hand_over(World::new(&touching), 0, make(), &format!("{label}, just touching"));
     let (weight, far) = weight_and_reach(&w);
     let rounding = weight * 4.0 * (f32::EPSILON as f64 / 2.0) * far.max(0.5);
-    let allowance = 2.0 * stored + own + rounding;
+    // The engine's own losses at rest (its solver lets a stack sink) are not credited.
+    let allowance = 2.0 * stored + own.max(0.0) + rounding;
     eprintln!("{label}: gain {gain:+.3e} J against {allowance:.3e} J (compression {:.3e}, the engine's own {own:+.3e}, rounding {rounding:.3e})", 2.0 * stored);
     assert!(gain <= allowance, "{label}: the handover added {gain:.3e} J, more than the engine adds at its own rest plus lifting the chunks out of their contact compression ({allowance:.3e} J)");
 }

@@ -190,6 +190,19 @@ struct PxbWorld : public PxSimulationEventCallback, public PxContactModifyCallba
     std::vector<PxbContact> contacts;
     std::unordered_set<uint64_t> excluded;  // packed pair keys
     std::unordered_map<uint64_t, std::vector<MotionRec>> snapshots;
+
+    /* Rest overlap of shape pairs (pxb_set_pair_offsets): overlap a contact model
+       handing bodies over holds at rest (e.g. an elastic-layer contact's permanent
+       indentation). The pair's contact separations are offset by it, so overlap up
+       to it is rest; it is kept while the shapes overlap and forgotten once they no
+       longer do (no contact point with negative separation, or no contact at all). */
+    struct PairOffset {
+        uint64_t a = 0, b = 0;
+        float offset = 0.0f;
+        bool seen = false;   // reported this step with an overlapping point
+    };
+    std::unordered_map<uint64_t, PairOffset> pair_offsets;
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, PairOffset>> pair_offset_snapshots;
     uint64_t next_token = 1;
 
     // Retired actors are parked rather than released: a resim capture may
@@ -244,8 +257,28 @@ struct PxbWorld : public PxSimulationEventCallback, public PxContactModifyCallba
     void onTrigger(PxTriggerPair*, PxU32) override {}
     void onAdvance(const PxRigidBody* const*, const PxTransform*, const PxU32) override {}
 
+    // ---- Rest overlap of shape pairs (see `pair_offsets`) ----
+    void apply_pair_offsets(PxContactModifyPair* const pairs, PxU32 count) {
+        for (PxU32 i = 0; i < count; ++i) {
+            PxContactSet& cs = pairs[i].contacts;
+            if (cs.size() == 0) continue;
+            auto sa = shape_to_id.find(pairs[i].shape[0]);
+            auto sb = shape_to_id.find(pairs[i].shape[1]);
+            if (sa == shape_to_id.end() || sb == shape_to_id.end()) continue;
+            auto it = pair_offsets.find(pair_key(sa->second, sb->second));
+            if (it == pair_offsets.end()) continue;
+            float deepest = cs.getSeparation(0);
+            for (PxU32 k = 1; k < cs.size(); ++k) deepest = PxMin(deepest, cs.getSeparation(k));
+            // The shapes no longer overlap: the pair forgets its offset (after the step).
+            if (!(deepest < 0.0f)) continue;
+            it->second.seen = true;
+            for (PxU32 k = 0; k < cs.size(); ++k) cs.setSeparation(k, cs.getSeparation(k) + it->second.offset);
+        }
+    }
+
     // ---- PxContactModifyCallback: the ZeroImpulse flavour of pair exclusion ----
     void onContactModify(PxContactModifyPair* const pairs, PxU32 count) override {
+        if (!pair_offsets.empty()) apply_pair_offsets(pairs, count);
         if (excluded.empty()) return;
         for (PxU32 i = 0; i < count; ++i) {
             auto ia = actor_to_id.find(pairs[i].actor[0]);
@@ -751,8 +784,41 @@ void pxb_step(PxbWorld* w, float dt) {
     // rest of the game shares.
     if (w->attached) return;
     w->contacts.clear();
+    for (auto& kv : w->pair_offsets) kv.second.seen = false;
     w->scene->simulate(dt);
     w->scene->fetchResults(true);
+    // A pair whose shapes no longer overlap forgets its rest overlap.
+    for (auto it = w->pair_offsets.begin(); it != w->pair_offsets.end();) {
+        if (it->second.seen) ++it; else it = w->pair_offsets.erase(it);
+    }
+}
+
+uint8_t pxb_set_pair_offsets(PxbWorld* w, const uint64_t* a, const uint64_t* b, const float* offset, uint32_t count) {
+    if (!w || w->attached) return 0;
+    w->pair_offsets.clear();
+    for (uint32_t i = 0; i < count; ++i) {
+        if (!(offset[i] > 0.0f)) continue;
+        PxbWorld::PairOffset po;
+        po.a = a[i];
+        po.b = b[i];
+        po.offset = offset[i];
+        w->pair_offsets[PxbWorld::pair_key(a[i], b[i])] = po;
+    }
+    return 1;
+}
+
+uint32_t pxb_pair_offsets(const PxbWorld* w, uint64_t* a, uint64_t* b, float* offset, uint32_t cap) {
+    if (!w) return 0;
+    uint32_t n = 0;
+    for (const auto& kv : w->pair_offsets) {
+        if (n < cap) {
+            a[n] = kv.second.a;
+            b[n] = kv.second.b;
+            offset[n] = kv.second.offset;
+        }
+        ++n;
+    }
+    return n;
 }
 
 uint32_t pxb_drain_contacts(PxbWorld* w, PxbContact* out, uint32_t cap) {
@@ -803,6 +869,7 @@ uint64_t pxb_capture_motion(PxbWorld* w, const uint64_t* scope, uint32_t scope_c
     else { for (uint32_t i = 0; i < scope_count; ++i) { auto it = w->bodies.find(scope[i]); if (it != w->bodies.end()) push(it->first, it->second); } }
     const uint64_t token = w->next_token++;
     w->snapshots.emplace(token, std::move(recs));
+    w->pair_offset_snapshots.emplace(token, w->pair_offsets);
     return token;
 }
 
@@ -810,6 +877,8 @@ uint8_t pxb_restore_motion(PxbWorld* w, uint64_t token, const uint64_t* scope, u
     if (!w) return 0;
     auto sit = w->snapshots.find(token);
     if (sit == w->snapshots.end()) return 1;
+    auto oit = w->pair_offset_snapshots.find(token);
+    if (oit != w->pair_offset_snapshots.end()) w->pair_offsets = oit->second;
     std::unordered_set<uint64_t> scoped;
     for (uint32_t i = 0; i < scope_count; ++i) scoped.insert(scope[i]);
     for (const MotionRec& m : sit->second) {
@@ -837,6 +906,10 @@ uint8_t pxb_restore_motion(PxbWorld* w, uint64_t token, const uint64_t* scope, u
     return 1;
 }
 
-void pxb_release_snapshot(PxbWorld* w, uint64_t token) { if (w) w->snapshots.erase(token); }
+void pxb_release_snapshot(PxbWorld* w, uint64_t token) {
+    if (!w) return;
+    w->snapshots.erase(token);
+    w->pair_offset_snapshots.erase(token);
+}
 
 } // extern "C"

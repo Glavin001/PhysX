@@ -182,6 +182,15 @@ uint32_t pxb_dynamic_bodies(const PxbWorld* w, uint64_t* out, uint32_t capacity)
    contact modification: the manifold is generated and its impulses zeroed. */
 uint8_t pxb_set_excluded_pairs(PxbWorld* w, const uint64_t* a, const uint64_t* b, uint32_t count);
 
+/* Rest overlap of shape pairs: the pair's contact separations are offset by
+   `offset` (m), so overlap up to it is rest. Replaces the set held; each is kept
+   while its shapes overlap and forgotten once they no longer do. Kept with the
+   motion snapshots. 0 on an attached world (needs our contact-modify callback). */
+uint8_t pxb_set_pair_offsets(PxbWorld* w, const uint64_t* a, const uint64_t* b, const float* offset, uint32_t count);
+/* The rest overlaps still held (shape ids, offset); returns how many there are
+   (writes at most `cap`). */
+uint32_t pxb_pair_offsets(const PxbWorld* w, uint64_t* a, uint64_t* b, float* offset, uint32_t cap);
+
 uint64_t pxb_capture_motion(PxbWorld* w, const uint64_t* scope, uint32_t scope_count);
 uint8_t pxb_restore_motion(PxbWorld* w, uint64_t token, const uint64_t* scope, uint32_t scope_count);
 void pxb_release_snapshot(PxbWorld* w, uint64_t token);

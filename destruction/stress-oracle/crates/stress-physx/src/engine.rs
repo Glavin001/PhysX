@@ -340,6 +340,38 @@ impl RigidEngine for PhysxEngine {
         self.apply(Phase::Motion, &cmd);
     }
 
+    fn set_rest_overlaps(&mut self, overlaps: &[stress_ref::engine::RestOverlap]) -> bool {
+        // Each chunk's shape: the pair's contact separations are offset by its
+        // indentation in the contact-modify callback (`set_pair_offsets`).
+        let shape_of: HashMap<(usize, usize), PxShapeId> = self
+            .owners
+            .iter()
+            .filter_map(|(s, o)| match o {
+                Owner::Body { chunk: Some(c), .. } => Some((*c, *s)),
+                _ => None,
+            })
+            .collect();
+        let pairs: Vec<(PxShapeId, PxShapeId, f32)> =
+            overlaps.iter().filter_map(|r| Some((*shape_of.get(&r.a)?, *shape_of.get(&r.b)?, r.indent as f32))).collect();
+        self.world.set_pair_offsets(&pairs)
+    }
+
+    fn rest_overlaps(&self) -> Vec<stress_ref::engine::RestOverlap> {
+        let chunk = |s: &PxShapeId| match self.owners.get(s) {
+            Some(Owner::Body { chunk: Some(c), .. }) => Some(*c),
+            _ => None,
+        };
+        self.world
+            .pair_offsets()
+            .into_iter()
+            .filter_map(|(a, b, indent)| {
+                let (ca, cb) = (chunk(&a)?, chunk(&b)?);
+                let (a, b) = if ca < cb { (ca, cb) } else { (cb, ca) };
+                Some(stress_ref::engine::RestOverlap { a, b, indent: indent as f64 })
+            })
+            .collect()
+    }
+
     fn save(&mut self) {
         self.discard();
         self.saved = Some(self.world.capture_motion(&[]).expect("PhysX motion snapshot"));

@@ -248,6 +248,11 @@ struct Coupling {
     /// Engine motion of every body at the start and the end of the current frame.
     start: HashMap<BodyKey, BodyMotion>,
     end: HashMap<BodyKey, BodyMotion>,
+    /// Layer contact: the contact state of the chunk pairs handed to the engine this
+    /// frame (an indentation), and the indentations the engine still held after its
+    /// step (`coupled_write_back` returns them to the world).
+    handed: Vec<(ContactKey, Stick)>,
+    kept: HashMap<((usize, usize), (usize, usize)), f64>,
 }
 
 /// Contact stiffness of two bodies pressed together along `dir`: their half-thicknesses

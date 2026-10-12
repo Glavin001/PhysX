@@ -3,6 +3,7 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
+use crate::engine::RestOverlap;
 use crate::solver::SolverEvent;
 
 use super::*;
@@ -146,7 +147,14 @@ impl World {
         if let Some(g) = &self.scene.ground {
             engine.add_ground(g.height);
         }
-        self.coupling = Some(Coupling { engine: EngineCell(Some(engine)), filter: ContactLoadFilter::new(), start: HashMap::new(), end: HashMap::new() });
+        self.coupling = Some(Coupling {
+            engine: EngineCell(Some(engine)),
+            filter: ContactLoadFilter::new(),
+            start: HashMap::new(),
+            end: HashMap::new(),
+            handed: Vec::new(),
+            kept: HashMap::new(),
+        });
         self.sync_engine_bodies();
     }
 
@@ -428,6 +436,64 @@ impl World {
         }
     }
 
+    /// Layer contact: hand the engine the indentation of every chunk pair it steps this
+    /// frame (either chunk's cluster driven): the overlap the layer contact holds at rest
+    /// (`Stick::indent`), which the engine then holds as rest too, so the handover adds
+    /// no energy (tests `handover_energy.rs`). The world's own pair loop does not see
+    /// those pairs this frame (they are the engine's); their contact state comes back
+    /// with the engine's end of the frame (`take_rest_overlaps_from_engine`).
+    fn hand_rest_overlaps_to_engine(&mut self) {
+        if !self.scene.sim.methods.layer_contact {
+            return;
+        }
+        let solver = &self.solver;
+        let engine_owned = |s: usize, c: usize| solver.chunks[s][c].active && solver.clusters[solver.chunks[s][c].cluster].driven;
+        let keys: Vec<ContactKey> = self
+            .sticks
+            .iter()
+            .filter(|(k, st)| st.indent > 0.0 && matches!(k, ContactKey::Pair(sa, ca, sb, cb) if engine_owned(*sa, *ca) || engine_owned(*sb, *cb)))
+            .map(|(k, _)| *k)
+            .collect();
+        let mut handed: Vec<(ContactKey, Stick)> = keys.into_iter().map(|k| (k, self.sticks.remove(&k).expect("listed"))).collect();
+        handed.sort_by_key(|(k, _)| match k {
+            ContactKey::Pair(sa, ca, sb, cb) => (*sa, *ca, *sb, *cb),
+            _ => unreachable!("pair keys only"),
+        });
+        let overlaps: Vec<RestOverlap> = handed
+            .iter()
+            .map(|(k, st)| match k {
+                ContactKey::Pair(sa, ca, sb, cb) => RestOverlap { a: (*sa, *ca), b: (*sb, *cb), indent: st.indent },
+                _ => unreachable!("pair keys only"),
+            })
+            .collect();
+        let coupling = self.coupling.as_mut().expect("coupled");
+        coupling.kept.clear();
+        if overlaps.is_empty() || coupling.engine.set_rest_overlaps(&overlaps) {
+            coupling.handed = handed;
+        } else {
+            // An engine that cannot hold them: the world keeps them.
+            coupling.handed.clear();
+            for (k, st) in handed {
+                self.sticks.insert(k, st);
+            }
+        }
+    }
+
+    /// The indentations the engine still holds return to the world's contact state (the
+    /// pair's friction layer, which the engine owned this frame, starts unstrained); a
+    /// pair the engine separated has forgotten its own, as the layer contact forgets it.
+    fn take_rest_overlaps_from_engine(&mut self) {
+        let coupling = self.coupling.as_mut().expect("coupled");
+        let handed = std::mem::take(&mut coupling.handed);
+        let kept = std::mem::take(&mut coupling.kept);
+        for (k, st) in handed {
+            let ContactKey::Pair(sa, ca, sb, cb) = k else { continue };
+            if let Some(&indent) = kept.get(&((sa, ca), (sb, cb))) {
+                self.sticks.entry(k).or_insert(Stick { indent, crushed: st.crushed, normal: st.normal, ..Default::default() });
+            }
+        }
+    }
+
     /// Engine contacts on driven clusters as contact impulses for the load filter.
     fn engine_contacts_to_impulses(&self, contacts: &[crate::engine::EngineContact]) -> Vec<ContactImpulse> {
         let ground_modulus = self.scene.ground.as_ref().map(|g| self.scene.material(&g.material).youngs_modulus).unwrap_or(3e10);
@@ -615,6 +681,7 @@ impl World {
     /// The end of a coupled frame: island bodies that still exist go back to the engine
     /// with the world's state; new fragments are created by the sync with theirs.
     pub fn coupled_write_back(&mut self, frozen: &[BodyKey]) {
+        self.take_rest_overlaps_from_engine();
         let motion = self.world_motion();
         let back: Vec<BodyMotion> = frozen.iter().filter_map(|k| motion.get(k).copied()).collect();
         self.coupling.as_mut().expect("coupled").engine.set_motion(&back);
@@ -706,8 +773,12 @@ impl World {
             .map(|c| BodyKey::Cluster(c.id))
             .chain(self.impactors.iter().enumerate().filter(|(_, m)| !m.driven).map(|(i, _)| BodyKey::Impactor(i)))
             .collect();
+        self.hand_rest_overlaps_to_engine();
         let coupling = self.coupling.as_mut().expect("coupled");
         let contacts = coupling.engine.step(fdt, &frozen, &impulses);
+        if !coupling.handed.is_empty() {
+            coupling.kept = coupling.engine.rest_overlaps().into_iter().map(|r| ((r.a, r.b), r.indent)).collect();
+        }
         let end: HashMap<BodyKey, BodyMotion> = coupling.engine.motion().into_iter().map(|m| (m.key, m)).collect();
         if let Some(watch) = std::env::var("STRESS_REF_WATCH_ENGINE_CHUNK").ok().and_then(|v| v.parse::<usize>().ok()) {
             // Diagnostic: the engine's contacts on one chunk (structure 0) this frame.

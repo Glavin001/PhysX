@@ -246,6 +246,8 @@ extern "C" {
     fn pxb_drain_contacts(w: *mut c_void, out: *mut CContact, cap: u32) -> u32;
     fn pxb_dynamic_bodies(w: *const c_void, out: *mut u64, cap: u32) -> u32;
     fn pxb_set_excluded_pairs(w: *mut c_void, a: *const u64, b: *const u64, count: u32) -> u8;
+    fn pxb_set_pair_offsets(w: *mut c_void, a: *const u64, b: *const u64, offset: *const f32, count: u32) -> u8;
+    fn pxb_pair_offsets(w: *const c_void, a: *mut u64, b: *mut u64, offset: *mut f32, cap: u32) -> u32;
     fn pxb_capture_motion(w: *mut c_void, scope: *const u64, count: u32) -> u64;
     fn pxb_restore_motion(w: *mut c_void, token: u64, scope: *const u64, count: u32) -> u8;
     fn pxb_release_snapshot(w: *mut c_void, token: u64);
@@ -312,6 +314,27 @@ impl Drop for PhysXWorld {
 
 impl PhysXWorld {
     /// Create a CPU scene.
+    /// Rest overlap of shape pairs (the C `pxb_set_pair_offsets`): each pair's contact
+    /// separations are offset by its overlap (m), so overlap up to it is rest, as a
+    /// contact model handing bodies over held it (an elastic-layer contact's permanent
+    /// indentation). Replaces the set held; each is kept while its shapes overlap and
+    /// forgotten once they no longer do; kept with the motion snapshots. False where
+    /// unsupported (an attached world).
+    pub fn set_pair_offsets(&mut self, pairs: &[(PxShapeId, PxShapeId, f32)]) -> bool {
+        let a: Vec<u64> = pairs.iter().map(|p| p.0 .0).collect();
+        let b: Vec<u64> = pairs.iter().map(|p| p.1 .0).collect();
+        let o: Vec<f32> = pairs.iter().map(|p| p.2).collect();
+        unsafe { pxb_set_pair_offsets(self.w, a.as_ptr(), b.as_ptr(), o.as_ptr(), pairs.len() as u32) != 0 }
+    }
+
+    /// The rest overlaps still held (`set_pair_offsets`).
+    pub fn pair_offsets(&self) -> Vec<(PxShapeId, PxShapeId, f32)> {
+        let n = unsafe { pxb_pair_offsets(self.w, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut(), 0) } as usize;
+        let (mut a, mut b, mut o) = (vec![0u64; n], vec![0u64; n], vec![0f32; n]);
+        let got = unsafe { pxb_pair_offsets(self.w, a.as_mut_ptr(), b.as_mut_ptr(), o.as_mut_ptr(), n as u32) } as usize;
+        (0..got.min(n)).map(|i| (PxShapeId(a[i]), PxShapeId(b[i]), o[i])).collect()
+    }
+
     pub fn new_cpu(gravity: Vec3, cpu_threads: u32) -> Option<Self> {
         Self::create(gravity, false, cpu_threads)
     }
