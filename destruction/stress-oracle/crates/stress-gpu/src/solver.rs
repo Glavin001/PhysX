@@ -72,6 +72,16 @@ fn plan_steps() -> f64 {
     std::env::var("STRESS_GPU_PLAN_STEPS").ok().and_then(|v| v.parse::<f64>().ok()).filter(|&x| x > 0.0).unwrap_or(PLAN_STEPS)
 }
 
+/// `STRESS_GPU_BLOWUP_CHECK=<m/s>` (diagnostic, no physics change): report the mirror's
+/// fastest chunk when above this speed, or with a hidden displacement over a metre or
+/// turn over a radian, at the coupled frame's checkpoints (`GpuSolver::mirror_check`),
+/// and each adaptive settle's static solve beside the reference's on the same state.
+/// Read once.
+pub fn blowup_limit() -> Option<f64> {
+    static LIMIT: std::sync::OnceLock<Option<f64>> = std::sync::OnceLock::new();
+    *LIMIT.get_or_init(|| std::env::var("STRESS_GPU_BLOWUP_CHECK").ok().and_then(|v| v.parse::<f64>().ok()))
+}
+
 /// `STRESS_GPU_SYNC_EACH_STEP=1`: bring the mirror's bonds up to the GPU's after every
 /// `step` instead of lazily.
 fn sync_each_step() -> bool {
@@ -1656,6 +1666,7 @@ impl GpuSolver {
             // re-plan contacts from the state reached.
             let t_split = std::time::Instant::now();
             self.download(gpu);
+            self.mirror_check("before host split");
             let mut pending: Vec<usize> = halted;
             pending.sort_unstable();
             for &ci in pending.iter().rev() {
@@ -1680,6 +1691,7 @@ impl GpuSolver {
                 self.replans += 1;
                 self.coverage |= coverage::REPLAN;
             }
+            self.mirror_check("after host split");
             self.mirror.time = self.step_times[start];
             // The live clusters' (the map keeps the ids of clusters split away).
             let left_now = self.mirror.clusters.iter().filter_map(|c| remaining.get(&c.id).copied()).max().unwrap_or(0).max(pipeline_left);
@@ -1752,6 +1764,56 @@ impl GpuSolver {
             row.truncate(ran);
         }
         Ok(out)
+    }
+
+    /// Diagnostic (`STRESS_GPU_BLOWUP_CHECK=<m/s>`): the fastest active chunk of the
+    /// mirror (cluster motion and hidden state), printed with `label` when above the limit.
+    pub fn mirror_check(&self, label: &str) -> bool {
+        let Some(limit) = blowup_limit() else { return false };
+        let m = &self.mirror;
+        let mut worst = (0.0f64, 0usize, 0usize);
+        for s in 0..m.structures.len() {
+            for c in 0..m.structures[s].chunks.len() {
+                if !m.chunks[s][c].active {
+                    continue;
+                }
+                let st = &m.chunks[s][c];
+                // A hidden displacement of a metre or turn of a radian counts as a speed
+                // over the limit (diagnostic: deformation that large is not physical).
+                let v = m.chunk_velocity(s, c).0.norm().max(if st.u.norm() > 1.0 || st.th.norm() > 1.0 { f64::INFINITY } else { 0.0 });
+                if !v.is_finite() || v > worst.0 {
+                    worst = (v, s, c);
+                }
+            }
+        }
+        if !(worst.0 <= limit) {
+            let (_, s, c) = worst;
+            let ci = m.chunks[s][c].cluster;
+            let cl = &m.clusters[ci];
+            let st = &m.chunks[s][c];
+            eprintln!(
+                "MIRROR {label} at t {:.6} (substep {}): chunk ({s},{c}) speed {:.3e}; cluster {ci} (id {}, parent {:?}, {} chunks, {} bonds, m {:.3}, {:?}, anchored {}, driven {}) v {:?} w {:?}; hidden u {:?} th {:?} v {:?} w {:?}",
+                m.time,
+                m.substeps,
+                worst.0,
+                cl.id,
+                cl.parent,
+                cl.chunks.len(),
+                cl.bonds.len(),
+                cl.mass,
+                cl.activity,
+                cl.anchored,
+                cl.driven,
+                cl.velocity.to_array(),
+                cl.angular_velocity.to_array(),
+                st.u.to_array(),
+                st.th.to_array(),
+                st.v.to_array(),
+                st.w.to_array()
+            );
+            return true;
+        }
+        false
     }
 
     /// Whether cluster `ci` stays one piece with the bonds that disconnected on the GPU
@@ -2286,9 +2348,59 @@ impl GpuSolver {
             let opts = stress_ref::statics::StaticOptions::default();
             candidates.iter().map(|&ci| self.mirror.equilibrate_or_keep(ci, &loads, &opts).converged).collect()
         } else {
-            self.equilibrate(gpu, &candidates, &loads).iter().map(|e| e.converged).collect()
+            let diag = blowup_limit().is_some().then(|| self.mirror.clone());
+            let eqs = self.equilibrate(gpu, &candidates, &loads);
+            if let Some(mut oracle) = diag {
+                // Diagnostic: the reference's own static solve of the same clusters from
+                // the same state and loads.
+                let opts = stress_ref::statics::StaticOptions::default();
+                for (&ci, e) in candidates.iter().zip(&eqs) {
+                    let r = oracle.equilibrate_or_keep(ci, &loads, &opts);
+                    let cl = &oracle.clusters[ci];
+                    let s = cl.structure;
+                    let u = cl.chunks.iter().map(|&c| oracle.chunks[s][c].u.norm()).fold(0.0, f64::max);
+                    let th = cl.chunks.iter().map(|&c| oracle.chunks[s][c].th.norm()).fold(0.0, f64::max);
+                    let net: (Vec3, Vec3) = cl.chunks.iter().fold((Vec3::ZERO, Vec3::ZERO), |(f, t), &c| (f + loads.force[s][c], t + loads.torque[s][c]));
+                    eprintln!(
+                        "settle {ci}: GPU converged {} residual {:.3e} newton {} cg {}; reference converged {} residual {:.3e} newton {} cg {}, max |u| {u:.3e} |th| {th:.3e}; recorded loads net force {:?} (weight {:.1} N)",
+                        e.converged, e.residual, e.newton_iterations, e.cg_iterations, r.converged, r.residual, r.newton_iterations, r.cg_iterations, net.0.to_array(), cl.mass * 9.81
+                    );
+                    if !r.converged {
+                        // The reference kept the start state (`equilibrate_or_keep`).
+                        let m0 = &oracle;
+                        let st0 = |c: usize| &m0.chunks[s][c];
+                        let dump = serde_json::json!({
+                            "pose": [cl.pose.position.to_array(), [cl.pose.rotation.x, cl.pose.rotation.y, cl.pose.rotation.z, cl.pose.rotation.w]],
+                            "chunks": cl.chunks.iter().map(|&c| serde_json::json!({
+                                "index": c, "u": st0(c).u.to_array(), "th": st0(c).th.to_array(), "inertia_scale": st0(c).inertia_scale,
+                                "force": loads.force[s][c].to_array(), "torque": loads.torque[s][c].to_array()
+                            })).collect::<Vec<_>>(),
+                            "bonds": cl.bonds.iter().map(|&bi| serde_json::json!({"source": m0.bonds[s][bi].source, "joint": m0.bonds[s][bi].joint})).collect::<Vec<_>>(),
+                        });
+                        eprintln!("DUMP {dump}");
+                        for &c in &cl.chunks {
+                            let ch = &m0.structures[s].chunks[c];
+                            eprintln!("    chunk {c}: center {:?} half {:?} m {:.3} hull {} load f {:?} t {:?}", ch.center.to_array(), ch.half_extents.to_array(), ch.mass, ch.hull.is_some(), loads.force[s][c].to_array(), loads.torque[s][c].to_array());
+                        }
+                        for &bi in &cl.bonds {
+                            let b = &m0.bonds[s][bi];
+                            eprintln!("    bond {bi} ({} - {}): alive {}, area {:.4}, normal {:?}, centroid {:?}, joint {:?}", b.geometry.a, b.geometry.b, b.alive, b.geometry.area, b.geometry.normal.to_array(), b.geometry.centroid.to_array(), b.joint);
+                        }
+                    }
+                }
+            }
+            eqs.iter().map(|e| e.converged).collect()
         };
         let m = &mut self.mirror;
+        if blowup_limit().is_some() {
+            for (&ci, &ok) in candidates.iter().zip(&results) {
+                let cl = &m.clusters[ci];
+                let s = cl.structure;
+                let th = cl.chunks.iter().map(|&c| m.chunks[s][c].th.norm()).fold(0.0, f64::max);
+                let u = cl.chunks.iter().map(|&c| m.chunks[s][c].u.norm()).fold(0.0, f64::max);
+                eprintln!("settle cluster {ci} (id {}, {} chunks, {} bonds, anchored {}): converged {ok}, max |u| {u:.3e}, max |th| {th:.3e}", cl.id, cl.chunks.len(), cl.bonds.len(), cl.anchored);
+            }
+        }
         for (&ci, &ok) in candidates.iter().zip(&results) {
             if !ok {
                 // No static equilibrium (a mechanism): it stays in the explicit solve.
@@ -2313,7 +2425,9 @@ impl GpuSolver {
             self.sync(gpu);
         }
         // Every frame: it also counts the active clusters' timers down.
+        self.mirror_check("tail start");
         if self.settle_quiet_clusters(gpu, frame_dt, false) {
+            self.mirror_check("after settle_quiet_clusters");
             // The newly settled clusters take part in this frame's fatigue.
             self.rebuild(gpu, 0.0)?;
         }
@@ -2331,9 +2445,15 @@ impl GpuSolver {
             m.clusters[ci].activity = Activity::Active;
             m.clusters[ci].active_timer = m.config.active_time;
         }
+        if blowup_limit().is_some() {
+            eprintln!("tail: damaged {damaged:?}, disconnected {disconnected:?}");
+        }
+        self.mirror_check("tail before split");
+        let m = &mut self.mirror;
         for &ci in disconnected.iter().rev() {
             m.split_cluster(ci);
         }
+        self.mirror_check("tail after split");
         Ok(true)
     }
 

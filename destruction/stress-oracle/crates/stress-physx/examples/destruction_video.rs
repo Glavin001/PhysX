@@ -36,6 +36,9 @@
 //!     [--encode-after] [--live-readout] [--no-render] [--info]
 //!   ... --scene live --seconds 10 --encode-after --live-readout --out videos/demo/live.mp4
 
+#[path = "../tests/common/motion.rs"]
+mod motion;
+
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -662,6 +665,12 @@ fn main() {
         w.step_frame(&gpu).expect("frame");
         let ms = t.elapsed().as_secs_f64() * 1e3;
         times.push(ms);
+        if std::env::var("BLOWUP_REPORT").is_ok() {
+            // Diagnostic: the mirror's motion state each frame (synced after the timing).
+            w.solver.sync(&gpu);
+            let (_, line) = motion::report(&w.solver.mirror, &w.solver.impactors);
+            eprintln!("frame {f} t {:.3}: {} substeps, {} clusters, {} broken; {line}", w.solver.mirror.time, w.solver.mirror.substeps - s0, w.solver.mirror.clusters.len(), w.solver.mirror.broken_bond_count());
+        }
         let m = &w.solver.mirror;
         let broken = m.broken_bond_count();
         let clusters = m.clusters.len();

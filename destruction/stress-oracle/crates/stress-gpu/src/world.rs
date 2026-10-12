@@ -90,6 +90,12 @@ pub struct GpuWorld {
 
 /// Segments of an island frame, each checked against the contact plans made within it
 /// (`step_frame_coupled`): a plan that needs a smaller step costs one segment again.
+///
+/// `STRESS_GPU_FIXED_HORIZON=1` (switchable, read per segment): every island frame runs
+/// these segments, without the cost model's shorter horizons. The cost model weighs
+/// wall-clock costs measured so far, so its horizons, and with them the substeps, plans
+/// and outcome, differ from run to run; fixed horizons make a run reproducible (the GPU
+/// is otherwise deterministic), e.g. to bisect a fault to its frame.
 const FRAME_SEGMENTS: usize = 4;
 
 /// Why a scene cannot run on the GPU yet.
@@ -206,7 +212,9 @@ impl GpuWorld {
             let saved_host = (self.frame, self.events_done.clone(), self.blasts_active.clone(), self.probes.clone(), self.next_sample, self.filter.clone());
             let saved_counts = (self.shell.island_frames, self.shell.max_island_bodies, self.shell.engine_body_frames, self.shell.island_body_frames);
             self.with_shell_mut(|w| w.engine_save());
+            self.solver.mirror_check("frame start");
             let f = self.with_shell_mut(|w| w.coupled_prepare(&forced));
+            self.solver.mirror_check("after coupled_prepare (engine step)");
             self.filter.ingest(&self.solver.mirror, f.t0, fdt, &f.impulses);
             self.solver.extra_terms = self.filter.terms(&self.solver.mirror);
             self.solver.refresh(gpu)?;
@@ -250,7 +258,9 @@ impl GpuWorld {
                     // measured so far: candidates, sweeps and the directions pairs can press
                     // along shrink with the horizon (a fast fragment sweeps past fewer
                     // chunks), at the price of more segments. The segment then ends there.
-                    if self.cost_substep.1 > 0 && self.cost_segment.1 > 0 {
+                    // (`STRESS_GPU_FIXED_HORIZON=1`: segments of FRAME_SEGMENTS per frame,
+                    // independent of measured costs, for reproducible runs.)
+                    if self.cost_substep.1 > 0 && self.cost_segment.1 > 0 && std::env::var("STRESS_GPU_FIXED_HORIZON").map_or(true, |v| v != "1") {
                         let per_sub = self.cost_substep.0 / self.cost_substep.1 as f64;
                         let per_seg = self.cost_segment.0 / self.cost_segment.1 as f64;
                         let cost = |w: &Self, h: f64, c: f64| per_sub / w.combined_dt(stress, c, fdt) + per_seg / h;
@@ -290,6 +300,9 @@ impl GpuWorld {
                         self.solver.plan_log = Some(Vec::new());
                         let t_run = std::time::Instant::now();
                         let ran = self.advance_substeps(gpu, step, len)?;
+                        if self.solver.mirror_check("after island substeps") {
+                            eprintln!("    (segment: {ran} of {len} substeps of {step:.3e} s, stress {stress:.3e}, contact {contact:.3e}, horizon {horizon:.3e})");
+                        }
                         if ran > 0 {
                             self.cost_substep.0 += t_run.elapsed().as_secs_f64();
                             self.cost_substep.1 += ran as u64;
@@ -332,7 +345,9 @@ impl GpuWorld {
                 self.solver.stop_at_plan = false;
             }
             self.solver.plan_log = None;
+            self.solver.mirror_check("before finish_frame");
             self.finish_frame(gpu, taken)?;
+            self.solver.mirror_check("after finish_frame");
             self.solver.sync(gpu);
             let since = &self.solver.mirror.events[saved.mirror().events.len()..];
             let broke = fractured_since(saved.mirror(), since, &f.driven);
@@ -371,6 +386,7 @@ impl GpuWorld {
             w.set_driven_motion(1.0);
             w.coupled_write_back(&frozen);
         });
+        self.solver.mirror_check("after write-back");
         self.solver.refresh(gpu)
     }
 
