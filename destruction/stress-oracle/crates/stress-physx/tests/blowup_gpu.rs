@@ -321,6 +321,7 @@ fn bridge_stays_within_its_energy_reference() {
     let g = Vec3::from_array(s.gravity);
     let ground = s.ground.as_ref().expect("ground").height;
     let mut w = stress_ref::world::World::with_engine(&s, PhysxEngine::boxed(g).expect("PhysX CPU"));
+    let started = std::time::Instant::now();
     let (e0, stored0) = mechanical(&w.solver, &w.impactors, g.norm(), ground);
     let start = e0 + stored0;
     eprintln!("start: kinetic + potential {e0:.6e} J, bonds' stored {stored0:.3e} J");
@@ -343,6 +344,9 @@ fn bridge_stays_within_its_energy_reference() {
         }
         let (e, _) = mechanical(&w.solver, &w.impactors, g.norm(), ground);
         worst = worst.max(e - start);
+        if f % 10 == 9 {
+            eprintln!("progress frame {f} (t {:.3} s): kinetic + potential at most {worst:+.4e} J relative to the start ({:.1} s elapsed)", w.solver.time, started.elapsed().as_secs_f64());
+        }
         energy_check(f, w.solver.time, e, start, &mut failure);
         if let Some(why) = &failure {
             let (v, line) = report(&w.solver, &w.impactors);
@@ -350,4 +354,10 @@ fn bridge_stays_within_its_energy_reference() {
         }
     }
     eprintln!("{frames} frames: kinetic + potential at most {worst:.4e} J relative to the start");
+    if stress_ref::profile::enabled() {
+        // STRESS_PROFILE=1: where the reference's time went, and its rate.
+        let secs = started.elapsed().as_secs_f64();
+        eprintln!("{frames} frames in {secs:.1} s ({:.2} frames/s), {} substeps ({:.0} per frame)", frames as f64 / secs, w.solver.substeps, w.solver.substeps as f64 / frames as f64);
+        eprintln!("{}", stress_ref::profile::report());
+    }
 }
