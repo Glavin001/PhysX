@@ -8,11 +8,17 @@
 //!   town   house-1story, house-2story, brick-building, villa-savoye, fractured-tower,
 //!          fractured-bridge and fractured-wall on one ground, each struck by a lobbed
 //!          concrete ball at a staggered arrival time (offline: 1x playback, any compute)
-//!   live   coarse concrete walls (1/3 m chunks) and an intact house-1story as backdrop,
-//!          the walls struck in turn; every frame carries its measured `step_frame` time
+//!   live   free concrete walls of 1/3 m chunks (realtime_envelope's wall, default six of
+//!          3 x 1 x 3) in zero gravity, each struck in turn by a 200 kg steel ram at
+//!          10 m/s; with `--live-readout` every frame carries its measured `step_frame`
+//!          time and the last 3 s of them (`--walls`, `--wall NXxNYxNZ`, `--chunk`,
+//!          `--ram-mass`, `--ram-half` vary it)
+//!   live-gravity  the same walls standing on the ground with intact house-1story packs
+//!          behind (`--houses`): debris resting on the ground stays in impact islands
+//!          at the contact step, far from real time on the M3 Max
 //!   <pack>[,<pack>...]  a subset of the town (same layout and schedule)
 //!
-//! Impactors start at t = 0 and fly ballistic arcs under gravity. An arc reaching its
+//! Town impactors start at t = 0 and fly ballistic arcs under gravity. An arc reaching its
 //! target at time T with a descent of at most 70 degrees arrives at no less than
 //! 0.53 g T, so arrivals after about 2.6 s cannot stay at 12-15 m/s: those impactors arrive
 //! as fast as the arc requires, with their mass lowered to carry the same momentum as a
@@ -27,7 +33,8 @@
 //!     cargo build --release -p stress-physx --features gpu --example destruction_video
 //!   DYLD_LIBRARY_PATH=$PHYSX_ROOT/lib target/physx-gpu/release/examples/destruction_video \
 //!     --scene town --seconds 10 --out videos/demo/town.mp4 [--width 1920 --height 1080]
-//!     [--encode-after] [--live-readout] [--info]
+//!     [--encode-after] [--live-readout] [--no-render] [--info]
+//!   ... --scene live --seconds 10 --encode-after --live-readout --out videos/demo/live.mp4
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -424,58 +431,97 @@ fn town(only: Option<&[String]>) -> Staged {
     let (lo, hi) = scene_bounds(&s);
     let target = Vec3::new((lo.x + hi.x) * 0.5, (lo.y + hi.y) * 0.5, 0.25 * hi.z);
     let span = (hi.x - lo.x).max(0.8 * (hi.y - lo.y));
-    let camera = CameraPose { target, distance: 0.85 * span + 6.0, yaw: -1.78, pitch: 0.42, fov: 40f64.to_radians() };
+    let camera = CameraPose { target, distance: 0.95 * span + 6.0, yaw: -1.66, pitch: 0.46, fov: 40f64.to_radians() };
     Staged { scene: s, camera, orbit: 0.012, schedule }
 }
 
-/// A free-standing wall of `n` chunks of `size` (concrete as realtime_peak's wall), its
-/// bottom course on the ground (fixed, as the packs' grade courses are).
-fn coarse_wall(name: &str, origin: Vec3, n: [usize; 3], size: f64) -> stress_ref::scene::BodyDesc {
+/// A wall of `n` chunks of `size` (concrete as realtime_peak's wall); with `grounded`
+/// its bottom course stands on the ground (fixed, as the packs' grade courses are),
+/// otherwise it is free (realtime_peak's and realtime_envelope's wall).
+fn coarse_wall(name: &str, origin: Vec3, n: [usize; 3], size: f64, grounded: bool) -> stress_ref::scene::BodyDesc {
     use stress_ref::builders::*;
     let mut chunks = grid(origin, n, Vec3::splat(size), "concrete");
-    for c in chunks.iter_mut().filter(|c| c.center[2] < origin.z + size) {
-        c.support = Support::Fixed;
+    if grounded {
+        for c in chunks.iter_mut().filter(|c| c.center[2] < origin.z + size) {
+            c.support = Support::Fixed;
+        }
     }
     let bonds = auto_bonds(&chunks, |_, _| "concrete".into());
     body(name, chunks, bonds)
 }
 
-fn live(walls: usize, houses: usize, wall: [usize; 3]) -> Staged {
+/// The live scene: `walls` concrete walls of `wall` chunks of 1/3 m in a row, each struck
+/// in turn (arrivals 0.8 s, then every 1.2 s) by a 200 kg steel ram at 10 m/s.
+///
+/// `gravity` false (the default): the realtime_envelope regime, free walls in zero
+/// gravity and no ground; the rams fly straight, started 10 m/s x arrival time away.
+/// `gravity` true: the walls stand on the ground (bottom course fixed), `houses` intact
+/// house-1story packs behind them, the rams lobbed (`lob`). Debris then rests on the
+/// ground in contact, which keeps it in impact islands at the contact step.
+fn live(walls: usize, houses: usize, wall: [usize; 3], gravity: bool, size: f64, ram_mass: f64, ram_half: f64) -> Staged {
     use stress_ref::builders::*;
     use stress_ref::scene::GroundDesc;
-    let mut s = new_scene("live", "Coarse concrete walls struck in turn, an intact house behind");
+    let mut s = new_scene("live", "Coarse concrete walls struck in turn by steel rams");
     s.materials.insert("concrete".into(), oracle_concrete(None));
     s.materials.insert("steel".into(), elastic_steel());
-    s.ground = Some(GroundDesc { height: 0.0, friction: 0.6, material: "concrete".into() });
-    let size = 1.0 / 3.0;
+    if gravity {
+        s.ground = Some(GroundDesc { height: 0.0, friction: 0.6, material: "concrete".into() });
+    } else {
+        s.gravity = [0.0; 3];
+    }
     let width = wall[0] as f64 * size;
     let pitch = width + 2.0;
     for i in 0..walls {
         let x = i as f64 * pitch - 0.5 * (walls as f64 * pitch - 2.0);
-        s.bodies.push(coarse_wall(&format!("wall{i}"), Vec3::new(x, -0.5 * wall[1] as f64 * size, 0.0), wall, size));
+        s.bodies.push(coarse_wall(&format!("wall{i}"), Vec3::new(x, -0.5 * wall[1] as f64 * size, 0.0), wall, size, gravity));
     }
     let row = walls as f64 * pitch;
-    for h in 0..houses {
-        let p = pack("house-1story");
-        let (lo, hi) = body_bounds(&p.bodies[0]);
-        let hx = hi.x - lo.x;
-        let x = -0.5 * (houses as f64 * (hx + 3.0) - 3.0) + h as f64 * (hx + 3.0) - lo.x;
-        let mut part = p.clone();
-        part.bodies[0].name = format!("house{h}");
-        place(&mut s, &part, Vec3::new(x, 6.0 - lo.y, 0.0));
+    if gravity {
+        for h in 0..houses {
+            let p = pack("house-1story");
+            let (lo, hi) = body_bounds(&p.bodies[0]);
+            let hx = hi.x - lo.x;
+            let x = -0.5 * (houses as f64 * (hx + 3.0) - 3.0) + h as f64 * (hx + 3.0) - lo.x;
+            let mut part = p.clone();
+            part.bodies[0].name = format!("house{h}");
+            place(&mut s, &part, Vec3::new(x, 6.0 - lo.y, 0.0));
+        }
     }
     let mut schedule = Vec::new();
     for i in 0..walls {
         let arrival = 0.8 + 1.2 * i as f64;
-        let l = Lob { body: i, arrival, side: Vec3::new(-0.3, -1.0, 0.0), height: 0.6, lateral: 0.0 };
-        let imp = lob(&s, &l, 10.0, 200.0 * 10.0, 200.0, "steel");
-        let u = Vec3::from_array(imp.velocity) + Vec3::new(0.0, 0.0, -G * arrival);
+        let imp = if gravity {
+            let l = Lob { body: i, arrival, side: Vec3::new(-0.3, -1.0, 0.0), height: 0.6, lateral: 0.0 };
+            lob(&s, &l, 10.0, ram_mass * 10.0, ram_mass, "steel")
+        } else {
+            // realtime_envelope's ram (200 kg, 0.2 m steel box), at the wall's middle.
+            let (lo, hi) = body_bounds(&s.bodies[i]);
+            let speed = 10.0;
+            let face = Vec3::new(0.5 * (lo.x + hi.x), lo.y - ram_half - 0.02, 0.5 * (lo.z + hi.z));
+            ImpactorDesc {
+                name: format!("ram_wall{i}"),
+                shape: ImpactorShape::Box { half_extents: [ram_half; 3] },
+                mass: ram_mass,
+                position: (face - Vec3::new(0.0, speed * arrival, 0.0)).to_array(),
+                orientation: [1.0, 0.0, 0.0, 0.0],
+                velocity: [0.0, speed, 0.0],
+                angular_velocity: [0.0; 3],
+                material: "steel".into(),
+                crush: None,
+            }
+        };
+        let g = Vec3::from_array(s.gravity);
+        let u = Vec3::from_array(imp.velocity) + g * arrival;
         schedule.push((imp.name.clone(), s.bodies[i].name.clone(), arrival, u.norm()));
         s.impactors.push(imp);
     }
     let (lo, hi) = scene_bounds(&s);
-    let target = Vec3::new(0.0, 0.5 * (lo.y + hi.y), 0.25 * hi.z.max(2.0));
-    let camera = CameraPose { target, distance: 0.8 * row.max(hi.y - lo.y) + 6.0, yaw: -1.85, pitch: 0.30, fov: 40f64.to_radians() };
+    let target = Vec3::new(0.0, 0.5 * (lo.y + hi.y) + if gravity { 0.0 } else { 1.0 }, if gravity { 0.25 * hi.z.max(2.0) } else { 0.5 * (lo.z + hi.z) });
+    let camera = if gravity {
+        CameraPose { target, distance: 0.8 * row.max(hi.y - lo.y) + 6.0, yaw: -1.85, pitch: 0.30, fov: 40f64.to_radians() }
+    } else {
+        CameraPose { target, distance: 0.5 * row + 2.5, yaw: -1.92, pitch: 0.30, fov: 40f64.to_radians() }
+    };
     Staged { scene: s, camera, orbit: 0.01, schedule }
 }
 
@@ -530,7 +576,9 @@ fn main() {
     let mut show_info = false;
     let mut encode_after = false;
     let mut readout = false;
-    let (mut walls, mut houses, mut wall) = (4usize, 1usize, [6usize, 1, 5]);
+    let mut no_render = false;
+    let (mut walls, mut houses, mut wall) = (6usize, 1usize, [3usize, 1, 3]);
+    let (mut chunk, mut ram_mass, mut ram_half) = (1.0 / 3.0, 200.0f64, 0.1f64);
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         let mut next = || args.next().unwrap_or_else(|| panic!("{a} needs a value"));
@@ -543,6 +591,10 @@ fn main() {
             "--info" => show_info = true,
             "--encode-after" => encode_after = true,
             "--live-readout" => readout = true,
+            "--no-render" => no_render = true,
+            "--chunk" => chunk = next().parse().expect("--chunk M"),
+            "--ram-mass" => ram_mass = next().parse().expect("--ram-mass KG"),
+            "--ram-half" => ram_half = next().parse().expect("--ram-half M"),
             "--walls" => walls = next().parse().expect("--walls N"),
             "--houses" => houses = next().parse().expect("--houses N"),
             "--wall" => {
@@ -554,7 +606,8 @@ fn main() {
     }
     let staged = match scene_arg.as_str() {
         "town" => town(None),
-        "live" => live(walls, houses, wall),
+        "live" => live(walls, houses, wall, false, chunk, ram_mass, ram_half),
+        "live-gravity" => live(walls, houses, wall, true, chunk, ram_mass, ram_half),
         list => {
             let names: Vec<String> = list.split(',').map(str::to_string).collect();
             town(Some(&names))
@@ -587,11 +640,18 @@ fn main() {
     let engine = PhysxEngine::boxed_gpu(Vec3::from_array(scene.gravity)).expect("a PhysX GPU scene (build with PHYSX_ROOT at a GPU SDK)");
     let mut w = GpuWorld::with_engine(&gpu, &scene, engine).expect("GPU coupled world");
     let init_ms = t_init.elapsed().as_secs_f64() * 1e3;
-    let renderer = Renderer::new(&gpu, &w.solver.mirror, &w.solver.impactors, width, height);
+    let mut renderer = Renderer::new(&gpu, &w.solver.mirror, &w.solver.impactors, width, height);
+    renderer.ground = scene.ground.is_some();
+    let zero_g = scene.gravity.iter().all(|g| *g == 0.0);
+    let title = match (readout, zero_g) {
+        (true, true) => "GPU STRESS SOLVER + PHYSX GPU (M3 MAX), ZERO GRAVITY, STEPPED LIVE AT 1/60 S".to_string(),
+        (true, false) => "GPU STRESS SOLVER + PHYSX GPU (M3 MAX), STEPPED LIVE AT 1/60 S".to_string(),
+        (false, _) => "GPU STRESS SOLVER + PHYSX GPU, OFFLINE RENDER, 1X PLAYBACK".to_string(),
+    };
     println!("world created in {init_ms:.0} ms; renderer {} triangles at {width}x{height}", renderer.triangles());
 
     let frames = (seconds / scene.sim.frame_dt).round() as usize;
-    let mut sink = if encode_after { None } else { Some(FfmpegSink::new(&out, width, height, 60).expect("ffmpeg")) };
+    let mut sink = if encode_after || no_render { None } else { Some(FfmpegSink::new(&out, width, height, 60).expect("ffmpeg")) };
     let mut kept: Vec<Vec<u8>> = Vec::new();
     let mut times: Vec<f64> = Vec::with_capacity(frames);
     let mut csv = String::from("frame,time_s,step_ms,substeps,broken_bonds,clusters\n");
@@ -610,11 +670,13 @@ fn main() {
         csv.push_str(&format!("{f},{sim_t:.4},{ms:.3},{subs},{broken},{clusters}\n"));
         let mut cam = staged.camera;
         cam.yaw += staged.orbit * sim_t;
-        let mut rgba = renderer.render(&gpu, m, &w.solver.impactors, &cam);
-        draw_overlay(&mut rgba, width, height, readout, sim_t, f, frames, ms, &times, chunks, bonds, broken, clusters);
-        match sink.as_mut() {
-            Some(s) => s.write(&rgba).expect("ffmpeg write"),
-            None => kept.push(rgba),
+        if !no_render {
+            let mut rgba = renderer.render(&gpu, m, &w.solver.impactors, &cam);
+            draw_overlay(&mut rgba, width, height, readout, &title, sim_t, f, frames, ms, &times, chunks, bonds, broken, clusters);
+            match sink.as_mut() {
+                Some(s) => s.write(&rgba).expect("ffmpeg write"),
+                None => kept.push(rgba),
+            }
         }
         if f % 30 == 0 || ms > 1000.0 / 60.0 && readout {
             eprintln!("frame {f:4} t {sim_t:6.3} s: step {ms:8.1} ms, {subs:5} substeps, {broken:6} broken bonds, {clusters:5} clusters; {:.0} s elapsed", wall_start.elapsed().as_secs_f64());
@@ -623,7 +685,7 @@ fn main() {
     let compute = wall_start.elapsed().as_secs_f64();
     if let Some(s) = sink.take() {
         s.finish().expect("ffmpeg");
-    } else {
+    } else if !no_render {
         let mut s = FfmpegSink::new(&out, width, height, 60).expect("ffmpeg");
         for f in &kept {
             s.write(f).expect("ffmpeg write");
@@ -656,20 +718,20 @@ fn main() {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn draw_overlay(rgba: &mut [u8], width: u32, height: u32, live: bool, t: f64, f: usize, frames: usize, ms: f64, history: &[f64], chunks: usize, bonds: usize, broken: usize, clusters: usize) {
+fn draw_overlay(rgba: &mut [u8], width: u32, height: u32, live: bool, title: &str, t: f64, f: usize, frames: usize, ms: f64, history: &[f64], chunks: usize, bonds: usize, broken: usize, clusters: usize) {
     let mut o = Overlay { rgba, width, height };
     let s = (height as i32 / 360).max(2);
     let pad = 6 * s;
     let white = [245, 245, 245];
     let lines: Vec<String> = if live {
         vec![
-            "GPU STRESS SOLVER + PHYSX GPU, LIVE (COMPUTED IN REAL TIME)".into(),
+            title.into(),
             format!("T {t:5.2} S   FRAME {:3}/{frames}   {chunks} CHUNKS  {bonds} BONDS", f + 1),
             format!("BROKEN BONDS {broken}   CLUSTERS {clusters}"),
         ]
     } else {
         vec![
-            "GPU STRESS SOLVER + PHYSX GPU, OFFLINE RENDER, 1X PLAYBACK".into(),
+            title.into(),
             format!("T {t:5.2} S   FRAME {:3}/{frames}   {chunks} CHUNKS  {bonds} BONDS", f + 1),
             format!("BROKEN BONDS {broken}   CLUSTERS {clusters}   COMPUTE {ms:.0} MS/FRAME (NOT REAL TIME)"),
         ]
@@ -692,14 +754,17 @@ fn draw_overlay(rgba: &mut [u8], width: u32, height: u32, live: bool, t: f64, f:
         [240, 80, 70]
     };
     let big = 2 * s;
-    let label = format!("STEP_FRAME {ms:5.2} MS");
+    let label = format!("STEP {ms:6.2} MS");
     let bw = Overlay::text_width(&label, big);
-    let (gx, gw, gh) = (width as i32 - pad - 180 * s / 2 * 2, 180 * s / 2 * 2, 40 * s);
-    let gy = pad + 10 * big + 2 * s;
-    o.rect(gx - 3 * s, pad - 3 * s, gw + 6 * s, gy - pad + gh + 14 * s, [10, 12, 16], 0.55);
-    o.text(width as i32 - pad - bw, pad, big, color, &label);
-    o.text(gx, pad + 8 * big, s, white, "SIM ONLY: RENDER AND CAPTURE EXCLUDED");
-    let scale_ms = 25.0;
+    let (gw, gh) = (180 * s, 40 * s);
+    let gx = width as i32 - pad - gw;
+    let panel = 7 * big + 4 * s + 7 * s + 4 * s + gh;
+    let py = height as i32 - pad - panel;
+    let gy = py + 7 * big + 4 * s + 7 * s + 4 * s;
+    o.rect(gx - 3 * s, py - 3 * s, gw + 6 * s, panel + 6 * s, [10, 12, 16], 0.55);
+    o.text(gx + gw - bw, py, big, color, &label);
+    o.text(gx, py + 7 * big + 4 * s, s, white, "SIMULATION STEP ONLY, LAST 3 S");
+    let scale_ms = 40.0;
     let y_of = |v: f64| gy + gh - ((v / scale_ms).min(1.0) * gh as f64) as i32;
     let n = 180usize;
     let start = history.len().saturating_sub(n);

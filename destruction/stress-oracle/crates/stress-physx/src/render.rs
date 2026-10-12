@@ -268,6 +268,8 @@ pub struct Renderer {
     /// Distance (m) over which the ground grid fades.
     pub fade: f64,
     pub background: [f64; 3],
+    /// Draw the ground plane (off for a scene without ground).
+    pub ground: bool,
 }
 
 const SAMPLES: u32 = 4;
@@ -421,6 +423,7 @@ impl Renderer {
             object_count,
             fade: 120.0,
             background: [0.70, 0.76, 0.84],
+            ground: true,
         }
     }
 
@@ -432,6 +435,9 @@ impl Renderer {
     /// Render the solver's current state from `cam`; returns tightly packed RGBA (sRGB).
     pub fn render(&self, gpu: &Gpu, solver: &ReferenceSolver, impactors: &[Impactor], cam: &CameraPose) -> Vec<u8> {
         let mut objs = vec![Object { rows: rows(Mat3::IDENTITY, Vec3::ZERO), color: [0.56, 0.58, 0.55, 2.0] }; self.object_count];
+        if !self.ground {
+            objs[0] = Object { rows: [[0.0; 4]; 3], color: [0.0; 4] };
+        }
         for (s, st) in solver.structures.iter().enumerate() {
             for (c, ch) in st.chunks.iter().enumerate() {
                 let state = &solver.chunks[s][c];
