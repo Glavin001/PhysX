@@ -281,6 +281,55 @@ substep the fold stays linear (O(dt), no cancellation).
 kinetic energy to rounding); angular momentum changes only by the bonds' small-strain
 imbalance, converging to zero with the substep. **Status:** default on.
 
+### Rigid drift fold about its centre (fix, no switch, 2026-10-12)
+
+**Replaces** the frame placement of the linear fold (`fold_rigid_drift`, every free
+cluster every substep; world.slang `drift_rigid`). It turned the frame by the hidden
+field's mean rotation `phi` (exactly, `exp(phi)`) but moved it by `R (t - phi x com)`:
+a turn about the body origin compensated to first order, which moved every chunk by
+`R (1/2 phi x (phi x c))`, `c` its distance from the body origin. That origin is an
+arbitrary choice of the scene (a scene pack placed by moving its chunk centres keeps it
+at the world origin), and no observable may depend on it. Per substep `phi ~ 1e-9`
+hid it; a split child under the established methods (no `exact_frame_transfer`) keeps
+its finite hidden rotation, and its first fold moved it at once: fractured-bridge, a
+one-chunk child with 0.09 rad at 23.6 m from the origin jumped 9.50 cm (predicted
+9.55 cm) into its neighbour in one substep, and the pair contact fired the overlap as
+energy (+1.3 MJ, 35 m/s here; +2.2 MJ, 450 m/s on the GPU).
+
+**Method:** the frame turns about the fold's centre: `R (t - (exp(phi) - I) com)`, the
+difference by Rodrigues (`turn_difference`, no cancellation). The rigid part of the
+fold is then exact (a one-chunk cluster does not move); what remains is the hidden
+correction's first order about `com`, as before. `exact_frame_transfer` re-expresses
+every chunk from its recorded world pose, so it was already origin-invariant; it stays
+the exact path for multi-chunk children.
+
+**Evidence:** `rigid_drift_fold_is_independent_of_the_body_origin` (a one-chunk and a
+3-chunk free cluster, the origin beside them or 25 m away: same world poses to f64
+rounding; failed by 1.078e-1 m), stress-gpu `frame_fold.rs` (the GPU's substep against
+the reference's), stress-physx `bridge_stays_within_its_energy_{gpu,reference}`
+(kinetic plus potential energy never above the start's; failed at frames 49 and 51).
+The full stress-ref suite passes unchanged (goldens, showcases, principles). Oracle
+shift (`scripts/verify_identical.py`, single-thread cells, both method sets): 61 of 112
+cells identical; the 51 that differ are the fracture and contact scenes, chaotic under
+any perturbation of rounding at a split: b1_bond_shear 1e-9 relative; b9_panel_high
+centre displacement within 0.2 % of its range; s_car_brick car velocity within 0.8 %;
+b7_masonry_v04 (established) 181 -> 147 broken bonds; b8_frame_sudden (established)
+column force up to 86 % of its range apart. No golden needed updating. **Status:**
+adopted (a correctness fix: an observable must not depend on the body origin).
+
+### GPU static solve certifies only a finite, lowered residual (fix, GPU only, 2026-10-12)
+
+world.slang `island_statics` accepted an iterate at f32's floor (STATICS_ULPS of the
+iterate's own bond loads) once its residual stopped halving. A diverging secant
+iteration (a free fragment without equilibrium: blocks touching only through fully
+damaged, contact-only bonds) met that floor at overflow (inf <= inf) and before it (a
+finite 5e15 under a floor its 1e21 bond loads raised): adaptive settles came back
+"converged" with |u| 1e11 m and split into 1e7-1e9 m/s fragments (house-1story rammed).
+It now matches statics.rs: a finite residual, and the floor only for an iterate no larger
+than the solve's first; a non-finite residual ends the solve unconverged.
+`statics_vs_reference::free_cluster_settle_matches_the_reference` (two captured
+settles). **Status:** adopted.
+
 ### `contact_crushing` (model change)
 
 **Replaces** contacts of unlimited compressive strength: the contact that takes over a

@@ -98,7 +98,8 @@ fn house_ram_long() {
 fn house_ram_stays_within_its_energy() {
     std::env::set_var("STRESS_GPU_FIXED_HORIZON", "1");
     let frames = env_usize("BLOWUP_FRAMES", 600);
-    let s = configure(house_ram("house-1story"), frames as f64 / 60.0);
+    let name = std::env::var("BLOWUP_SCENE").unwrap_or_else(|_| "house-1story".into());
+    let s = configure(house_ram(&name), frames as f64 / 60.0);
     let Ok(gpu) = Gpu::new() else { return };
     let g = Vec3::from_array(s.gravity);
     let Some(engine) = PhysxEngine::boxed_gpu(g) else {
@@ -283,9 +284,22 @@ fn bridge_stays_within_its_energy_gpu() {
     eprintln!("start: kinetic + potential {e0:.6e} J, bonds' stored {stored0:.3e} J");
     let mut failure = None;
     let mut worst = f64::NEG_INFINITY;
+    let watch: Option<usize> = std::env::var("BLOWUP_WATCH_CHUNK").ok().and_then(|v| v.parse().ok());
     for f in 0..frames {
         w.step_frame(&gpu).expect("frame");
         w.solver.sync(&gpu);
+        if let Some(c) = watch {
+            // Diagnostic: one chunk's place, lowest hull corner and cluster each frame.
+            let m = &w.solver.mirror;
+            let st = &m.chunks[0][c];
+            let cl = &m.clusters[st.cluster];
+            let ch = &m.structures[0].chunks[c];
+            let q = cl.pose.rotation * stress_ref::math::Quat::from_axis_angle(st.th, st.th.norm());
+            let r = q.to_mat3() * ch.rotation;
+            let x = m.chunk_position(0, c);
+            let low = ch.hull.as_ref().map_or(f64::NAN, |h| h.vertices.iter().map(|v| (x + r * *v).z).fold(f64::INFINITY, f64::min));
+            eprintln!("watch frame {f} t {:.4}: chunk {c} at {:?}, lowest hull corner z {low:.4}, cluster id {} ({} chunks), driven {}, {:?}, v {:?}", m.time, x.to_array(), cl.id, cl.chunks.len(), cl.driven, cl.activity, m.chunk_velocity(0, c).0.to_array());
+        }
         let (e, _) = mechanical(&w.solver.mirror, &w.solver.impactors, g.norm(), ground);
         worst = worst.max(e - start);
         energy_check(f, w.solver.mirror.time, e, start, &mut failure);
@@ -312,8 +326,21 @@ fn bridge_stays_within_its_energy_reference() {
     eprintln!("start: kinetic + potential {e0:.6e} J, bonds' stored {stored0:.3e} J");
     let mut failure = None;
     let mut worst = f64::NEG_INFINITY;
+    let watch: Option<usize> = std::env::var("BLOWUP_WATCH_CHUNK").ok().and_then(|v| v.parse().ok());
     for f in 0..frames {
         w.step_frame();
+        if let Some(c) = watch {
+            // Diagnostic: one chunk's place, lowest corner and cluster each frame.
+            let m = &w.solver;
+            let st = &m.chunks[0][c];
+            let cl = &m.clusters[st.cluster];
+            let ch = &m.structures[0].chunks[c];
+            let q = cl.pose.rotation * stress_ref::math::Quat::from_axis_angle(st.th, st.th.norm());
+            let r = q.to_mat3() * ch.rotation;
+            let x = m.chunk_position(0, c);
+            let low = ch.hull.as_ref().map_or(f64::NAN, |h| h.vertices.iter().map(|v| (x + r * *v).z).fold(f64::INFINITY, f64::min));
+            eprintln!("watch frame {f} t {:.4}: chunk {c} at {:?}, lowest hull corner z {low:.4}, cluster id {} ({} chunks), driven {}, {:?}, v {:?}", m.time, x.to_array(), cl.id, cl.chunks.len(), cl.driven, cl.activity, m.chunk_velocity(0, c).0.to_array());
+        }
         let (e, _) = mechanical(&w.solver, &w.impactors, g.norm(), ground);
         worst = worst.max(e - start);
         energy_check(f, w.solver.time, e, start, &mut failure);
